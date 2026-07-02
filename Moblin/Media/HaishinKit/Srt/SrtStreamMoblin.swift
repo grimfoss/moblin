@@ -21,7 +21,9 @@ class SrtStreamMoblin: @unchecked Sendable {
         writer.delegate = self
     }
 
-    func open(streamId: String?, passphrase: String?, pbkeylen: String?, latency: UInt16, experimental: Bool) {
+    func open(streamId: String?, passphrase: String?, pbkeylen: String?, latency: UInt16,
+              experimental: Bool)
+    {
         if let passphrase, !passphrase.isEmpty {
             do {
                 srtEncryptedSender = try SrtEncryptedSender(streamId: streamId,

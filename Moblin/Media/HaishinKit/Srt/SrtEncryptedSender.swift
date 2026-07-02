@@ -42,7 +42,13 @@ final class SrtEncryptedSender: @unchecked Sendable {
     private let streamId: String?
     private let latency: UInt16
 
-    init(streamId: String?, passphrase: String, pbkeylen: String?, latency: UInt16, experimental: Bool) throws {
+    init(
+        streamId: String?,
+        passphrase: String,
+        pbkeylen: String?,
+        latency: UInt16,
+        experimental: Bool
+    ) throws {
         self.streamId = streamId
         self.latency = latency
         crypto = try SrtEncryption(passphrase: passphrase, pbkeylen: pbkeylen)
@@ -83,7 +89,7 @@ final class SrtEncryptedSender: @unchecked Sendable {
     fileprivate func output(packet: Data) {
         if isSrtDataPacket(packet: packet) {
             do {
-                delegate?.srtSenderOutput(packet: try crypto.encrypt(packet: packet))
+                try delegate?.srtSenderOutput(packet: crypto.encrypt(packet: packet))
             } catch {
                 logger.info("srt-sender: Encryption error: \(error)")
                 sender.stop()
@@ -96,7 +102,9 @@ final class SrtEncryptedSender: @unchecked Sendable {
     }
 
     private func isSrtConclusionHandshake(packet: Data) -> Bool {
-        guard packet.count >= 64, !isSrtDataPacket(packet: packet), getSrtControlPacketType(packet: packet) == 0 else {
+        guard packet.count >= 64, !isSrtDataPacket(packet: packet),
+              getSrtControlPacketType(packet: packet) == 0
+        else {
             return false
         }
         return packet.getUInt32Be(offset: 36) == 0xFFFF_FFFF
@@ -124,7 +132,10 @@ final class SrtEncryptedSender: @unchecked Sendable {
             writer.writeBytes(createHandshakeExtension(command: srtEncryptedStreamIdCommand,
                                                        data: encodeStreamId(streamId: streamId)))
         }
-        writer.writeBytes(createHandshakeExtension(command: srtEncryptedKmReqCommand, data: crypto.keyMaterialMessage))
+        writer.writeBytes(createHandshakeExtension(
+            command: srtEncryptedKmReqCommand,
+            data: crypto.keyMaterialMessage
+        ))
         return writer.data
     }
 
@@ -198,7 +209,11 @@ struct SrtEncryption {
         dataEncryptor = try AesEcbEncryptor(key: sek)
         let kek = try Self.deriveKey(passphrase: passphrase, salt: salt, keyLength: keyLength)
         let wrappedSek = try Self.wrapKey(kek: kek, plaintext: sek)
-        keyMaterialMessage = Self.createKeyMaterialMessage(salt: salt, sekLength: keyLength, wrappedSek: wrappedSek)
+        keyMaterialMessage = Self.createKeyMaterialMessage(
+            salt: salt,
+            sekLength: keyLength,
+            wrappedSek: wrappedSek
+        )
     }
 
     func encrypt(packet: Data) throws -> Data {
@@ -210,7 +225,10 @@ struct SrtEncryption {
         let iv = createCtrIv(packet: encrypted)
         let payload = encrypted[srtEncryptedDataPacketHeaderSize ..< encrypted.count]
         let encryptedPayload = try aesCtrCrypt(iv: iv, data: Data(payload))
-        encrypted.replaceSubrange(srtEncryptedDataPacketHeaderSize ..< encrypted.count, with: encryptedPayload)
+        encrypted.replaceSubrange(
+            srtEncryptedDataPacketHeaderSize ..< encrypted.count,
+            with: encryptedPayload
+        )
         return encrypted
     }
 
