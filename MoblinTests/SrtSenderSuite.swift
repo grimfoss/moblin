@@ -50,6 +50,38 @@ struct SrtSenderSuite {
         await model.waitForDisconnected()
     }
 
+    @Test
+    func encryptedConclusionHandshakeContainsKeyMaterial() async throws {
+        let sender = try SrtEncryptedSender(streamId: "1234",
+                                            passphrase: "0123456789abcdef",
+                                            pbkeylen: "16",
+                                            latency: 2000,
+                                            experimental: false)
+        let model = ModelMock()
+        sender.delegate = model
+        sender.start()
+        _ = await checkInductionHandshake(packet: model.waitForPacket())
+        try sender.input(packet: createInductionHandshake())
+        let packet = await model.waitForPacket()
+        #expect(packet.count == 296)
+        #expect(packet.substring(begin: 128, end: 136) == "00010003")
+        #expect(packet.substring(begin: 160, end: 168) == "00050001")
+        #expect(packet.substring(begin: 176, end: 184) == "0003000e")
+        #expect(packet.substring(begin: 184, end: 192) == "12202901")
+        #expect(packet.substring(begin: 200, end: 208) == "02000200")
+        #expect(packet.substring(begin: 212, end: 216) == "0404")
+    }
+
+    @Test
+    func aesKeyWrapVector() throws {
+        let kek = try Data(hexString: "000102030405060708090a0b0c0d0e0f")
+        let plaintext = try Data(hexString: "00112233445566778899aabbccddeeff")
+        let wrapped = try SrtEncryption.wrapKey(kek: kek, plaintext: plaintext)
+        #expect(wrapped.hexString() == "1fa68b0a8112b447aeF34bd8fb5a7b82 9d3e862371d2cfe5"
+            .lowercased()
+            .replacingOccurrences(of: " ", with: ""))
+    }
+
     private func checkInductionHandshake(packet: String) -> (UInt32, UInt32) {
         #expect(packet.count == 128)
         #expect(packet.substring(begin: 0, end: 16) == "8000000000000000")
